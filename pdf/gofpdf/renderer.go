@@ -40,9 +40,11 @@ func (pdf PDF) Size() (float64, float64) {
 }
 
 func (pdf PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
+	// TODO
 }
 
 func (pdf PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
+	canvas.RenderTextAsPath(pdf, text, m)
 }
 
 func (pdf PDF) transformBegin(m canvas.Matrix) {
