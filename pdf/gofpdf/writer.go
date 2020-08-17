@@ -1,7 +1,6 @@
 package gopdf
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/tdewolff/canvas"
@@ -10,7 +9,6 @@ import (
 // Writer writes the canvas as a PDF file.
 func Writer(w io.Writer, c *canvas.Canvas) error {
 	pdf := New(c.W, c.H)
-	fmt.Println(c.W, c.H)
 	c.Render(pdf)
 	return pdf.Output(w)
 }
