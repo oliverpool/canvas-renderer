@@ -67,8 +67,8 @@ func (pdf PDF) RenderImage(img image.Image, m canvas.Matrix) {
 		H: float64(size.Y) * sy,
 	}
 	fmt.Println(pdf.height)
-	topLeft := m.Dot(canvas.Point{0, float64(size.Y)})
-	bottomLeft := m.Dot(canvas.Point{0, 0})
+	// topLeft := m.Dot(canvas.Point{0, float64(size.Y)})
+	// bottomLeft := m.Dot(canvas.Point{0, 0})
 
 	_ = pdf.ImageByHolder(ih, 0, pdf.height-0-rect.H, rect)
 }
