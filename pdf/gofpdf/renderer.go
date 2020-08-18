@@ -6,9 +6,9 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"io"
 	"math"
 
+	"github.com/oliverpool/canvas-renderer/renderertest"
 	"github.com/phpdave11/gofpdf"
 	"github.com/tdewolff/canvas"
 )
@@ -274,19 +274,30 @@ func (pdf PDF) transformBegin(m canvas.Matrix) PDF {
 func (pdf PDF) RenderImage(img image.Image, m canvas.Matrix) {
 	defer pdf.transformBegin(m).TransformEnd()
 
-	var buf bytes.Buffer
-	hash := md5.New()
-	mr := io.MultiWriter(&buf, hash)
+	size := img.Bounds().Size()
 
-	_ = png.Encode(mr, img)
+	switch i := img.(type) {
+	case renderertest.JPEGImage:
+		pdf.renderImage(bytes.NewBuffer(i.JPEGBytes()), "JPG", size, m)
+	case renderertest.PNGImage:
+		pdf.renderImage(bytes.NewBuffer(i.PNGBytes()), "PNG", size, m)
+	default:
+		var buf bytes.Buffer
+		_ = png.Encode(&buf, img)
+		pdf.renderImage(&buf, "PNG", size, m)
+	}
+}
+
+func (pdf PDF) renderImage(buf *bytes.Buffer, imgType string, size image.Point, m canvas.Matrix) {
+	hash := md5.New()
+	hash.Write(buf.Bytes())
 	imgName := string(hash.Sum(nil))
 
 	opt := gofpdf.ImageOptions{
-		ImageType:             "PNG",
+		ImageType:             imgType,
 		ReadDpi:               false,
 		AllowNegativePosition: true,
 	}
-	pdf.RegisterImageOptionsReader(imgName, opt, &buf)
-	size := img.Bounds().Size()
+	pdf.RegisterImageOptionsReader(imgName, opt, buf)
 	pdf.ImageOptions(imgName, 0, pdf.height-float64(size.Y), float64(size.X), float64(size.Y), false, opt, 0, "")
 }
