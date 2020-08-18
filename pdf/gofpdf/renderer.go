@@ -3,6 +3,7 @@ package gofpdf
 import (
 	"bytes"
 	"crypto/md5"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -29,6 +30,7 @@ func New(width, height float64) PDF {
 	})
 	fpdf.SetMargins(0, 0, 0)
 	fpdf.SetAutoPageBreak(false, 0)
+	fpdf.SetCellMargin(0)
 	fpdf.AddPage()
 	return PDF{
 		Fpdf:   fpdf,
@@ -42,19 +44,20 @@ func (pdf PDF) Size() (float64, float64) {
 }
 
 func (pdf PDF) setFillColor(c color.RGBA) {
-	a := float64(c.A) / 255.0
-	adjusted := func(v uint8) int {
-		return int(float64(v) / a)
-	}
-	pdf.SetFillColor(adjusted(c.R), adjusted(c.G), adjusted(c.B))
-	pdf.SetAlpha(a, "")
+	pdf.setColor(pdf.SetFillColor, c)
 }
 func (pdf PDF) setStrokeColor(c color.RGBA) {
+	pdf.setColor(pdf.SetDrawColor, c)
+}
+func (pdf PDF) setTextColor(c color.RGBA) {
+	pdf.setColor(pdf.SetTextColor, c)
+}
+func (pdf PDF) setColor(cb func(r, g, b int), c color.RGBA) {
 	a := float64(c.A) / 255.0
 	adjusted := func(v uint8) int {
 		return int(float64(v) / a)
 	}
-	pdf.SetDrawColor(adjusted(c.R), adjusted(c.G), adjusted(c.B))
+	cb(adjusted(c.R), adjusted(c.G), adjusted(c.B))
 	pdf.SetAlpha(a, "")
 }
 func (pdf PDF) setLineWidth(w float64) {
@@ -225,37 +228,67 @@ func (pdf PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix
 }
 
 func (pdf PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
-	canvas.RenderTextAsPath(pdf, text, m)
+	// canvas.RenderTextAsPath(pdf, text, m)
 
-	// r.w.StartTextObject()
+	pdf.transformBegin(m)
 
-	// text.WalkSpans(func(y, dx float64, span canvas.TextSpan) {
-	// 	pdf.setFillColor(span.Face.Color)
-	// 	r.w.SetFont(span.Face.Font, span.Face.Size*span.Face.Scale)
-	// 	r.w.SetTextPosition(m.Translate(dx, y).Shear(span.Face.FauxItalic, 0.0))
-	// 	r.w.SetTextCharSpace(span.GlyphSpacing)
+	text.WalkSpans(func(y, dx float64, span canvas.TextSpan) {
+		pdf.setTextColor(span.Face.Color)
 
-	// 	if 0.0 < span.Face.FauxBold {
-	// 		pdf.SetTextRenderingMode(2)
-	// 		// TODO
-	// 		// fmt.Fprintf(r.w, " %v w", dec(span.Face.FauxBold*2.0))
-	// 	} else {
-	// 		pdf.SetTextRenderingMode(0)
-	// 	}
+		face := span.Face
 
-	// 	TJ := []interface{}{}
-	// 	words := span.Words()
-	// 	for i, w := range words {
-	// 		TJ = append(TJ, w)
-	// 		if i != len(words)-1 {
-	// 			TJ = append(TJ, span.WordSpacing)
-	// 		}
-	// 	}
-	// 	r.w.WriteText(TJ...)
-	// })
-	// r.w.EndTextObject()
+		styleIs := func(s canvas.FontStyle) bool {
+			return span.Face.Style&s == s
+		}
+		styleStr := ""
+		if styleIs(canvas.FontBold) {
+			styleStr += "B"
+		}
+		if styleIs(canvas.FontItalic) {
+			styleStr += "I"
+			if span.Face.FauxItalic > 0 {
+				// not implemented in gofpdf
+				// r.w.SetTextPosition(m.Translate(dx, y).Shear(span.Face.FauxItalic, 0.0))
+				err := fmt.Errorf("FauxItalic is not supported")
+				fmt.Println(err)
+				// pdf.SetError(err)
+				// return
+			}
+		}
+		// Handled by text.RenderDecoration(pdf, m)?
+		// TODO "U" (underscore)
+		// TODO "S" (strike-out)
 
-	// text.RenderDecoration(pdf, m)
+		_, buf := face.Font.Raw()
+		pdf.AddUTF8FontFromBytes(face.Name(), styleStr, buf)
+		pdf.SetFont(face.Name(), styleStr, 16)
+		pdf.SetFontUnitSize(span.Face.Size * span.Face.Scale)
+
+		if span.GlyphSpacing > 0 {
+			// not implemented in gofpdf
+			// r.w.SetTextCharSpace(span.GlyphSpacing)
+			err := fmt.Errorf("GlyphSpacing is not supported")
+			fmt.Println(err)
+			// pdf.SetError(err)
+			// return
+		}
+
+		if 0.0 < span.Face.FauxBold {
+			pdf.SetTextRenderingMode(2)
+			pdf.SetLineWidth(span.Face.FauxBold * 2.0)
+		} else {
+			pdf.SetTextRenderingMode(0)
+		}
+
+		pdf.SetXY(dx, pdf.height-y)
+		for _, w := range span.Words() {
+			width := pdf.GetStringWidth(w)
+			pdf.CellFormat(width+span.WordSpacing, 0, w, "", 0, "A", false, 0, "")
+		}
+	})
+	pdf.TransformEnd()
+
+	text.RenderDecoration(pdf, m)
 }
 
 func adjustMatrix(m canvas.Matrix) canvas.Matrix {
