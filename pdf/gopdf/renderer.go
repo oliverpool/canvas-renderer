@@ -51,6 +51,8 @@ func (pdf PDF) applyMatrix(m canvas.Matrix) {
 }
 
 func (pdf PDF) RenderImage(img image.Image, m canvas.Matrix) {
+	// currently not possible due to missing skewing
+	// https://github.com/signintech/gopdf/issues/141
 	tx, ty, theta, sx, sy, phi := m.Decompose()
 	fmt.Println(tx, ty, theta, sx, sy, phi)
 	// pdf.Rotate(-theta, 0, pdf.height)
