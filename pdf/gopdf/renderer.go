@@ -18,11 +18,9 @@ type PDF struct {
 // NewPDF creates a portable document format renderer.
 func New(width, height float64) PDF {
 	pdf := &gopdf.GoPdf{}
-	size := *gopdf.PageSizeA4
-	size.W = width
-	size.H = height
 	pdf.Start(gopdf.Config{
-		PageSize: size, // todo use actual w,h (https://github.com/signintech/gopdf/issues/140)
+		PageSize: gopdf.Rect{W: width, H: height},
+		Unit:     gopdf.UnitMM,
 	})
 	pdf.AddPage()
 	return PDF{
