@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"image/png"
 	"math"
+	"strconv"
 
 	"github.com/oliverpool/canvas-renderer/renderertest"
 	"github.com/phpdave11/gofpdf"
@@ -235,31 +236,13 @@ func (pdf PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 
 		face := span.Face
 
-		styleIs := func(s canvas.FontStyle) bool {
-			return span.Face.Style&s == s
-		}
+		// ensure font of the same name but different style won't be mixed
+		faceName := face.Name() + "-" + strconv.Itoa(int(face.Style))
 		styleStr := ""
-		if styleIs(canvas.FontBold) {
-			styleStr += "B"
-		}
-		if styleIs(canvas.FontItalic) {
-			styleStr += "I"
-			if span.Face.FauxItalic > 0 {
-				// not implemented in gofpdf
-				// r.w.SetTextPosition(m.Translate(dx, y).Shear(span.Face.FauxItalic, 0.0))
-				err := fmt.Errorf("FauxItalic is not supported")
-				fmt.Println(err)
-				// pdf.SetError(err)
-				// return
-			}
-		}
-		// Handled by text.RenderDecoration(pdf, m)?
-		// TODO "U" (underscore)
-		// TODO "S" (strike-out)
 
 		_, buf := face.Font.Raw()
-		pdf.AddUTF8FontFromBytes(face.Name(), styleStr, buf)
-		pdf.SetFont(face.Name(), styleStr, 16)
+		pdf.AddUTF8FontFromBytes(faceName, styleStr, buf)
+		pdf.SetFont(faceName, styleStr, 16)
 		pdf.SetFontUnitSize(span.Face.Size * span.Face.Scale)
 
 		if span.GlyphSpacing > 0 {
@@ -278,7 +261,7 @@ func (pdf PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 			pdf.SetTextRenderingMode(0)
 		}
 
-		pdf.transformBegin(m.Translate(dx, y))
+		pdf.transformBegin(m.Translate(dx, y).Shear(span.Face.FauxItalic, 0.0))
 		pdf.SetXY(0, pdf.height)
 		for _, w := range span.Words() {
 			width := pdf.GetStringWidth(w)
