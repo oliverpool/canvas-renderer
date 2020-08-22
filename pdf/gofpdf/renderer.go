@@ -232,8 +232,10 @@ func (pdf PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 	// canvas.RenderTextAsPath(pdf, text, m)
 
 	text.WalkSpans(func(y, dx float64, span canvas.TextSpan) {
-		pdf.setTextColor(span.Face.Color)
-
+		words := span.Words()
+		if len(words) == 0 {
+			return
+		}
 		face := span.Face
 
 		// ensure font of the same name but different style won't be mixed
@@ -243,7 +245,8 @@ func (pdf PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 		_, buf := face.Font.Raw()
 		pdf.AddUTF8FontFromBytes(faceName, styleStr, buf)
 		pdf.SetFont(faceName, styleStr, 16)
-		pdf.SetFontUnitSize(span.Face.Size * span.Face.Scale)
+		pdf.SetFontUnitSize(face.Size * face.Scale)
+		pdf.setTextColor(face.Color)
 
 		if span.GlyphSpacing > 0 {
 			// not implemented in gofpdf
@@ -254,16 +257,23 @@ func (pdf PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 			// return
 		}
 
-		if 0.0 < span.Face.FauxBold {
+		if 0.0 < face.FauxBold {
 			pdf.SetTextRenderingMode(2)
-			pdf.SetLineWidth(span.Face.FauxBold * 2.0)
+			pdf.SetLineWidth(face.FauxBold * 2.0)
 		} else {
 			pdf.SetTextRenderingMode(0)
 		}
 
-		pdf.transformBegin(m.Translate(dx, y).Shear(span.Face.FauxItalic, 0.0))
+		/* // Hack to sonmehow adjust the position of the text
+		metrics := face.Metrics()
+		dy := metrics.Descent / 5. // random math
+		/*/
+		dy := 0.
+		//*/
+
+		pdf.transformBegin(m.Translate(dx, y+dy).Shear(face.FauxItalic, 0.0))
 		pdf.SetXY(0, pdf.height)
-		for _, w := range span.Words() {
+		for _, w := range words {
 			width := pdf.GetStringWidth(w)
 			pdf.CellFormat(width+span.WordSpacing, 0, w, "", 0, "A", false, 0, "")
 		}
