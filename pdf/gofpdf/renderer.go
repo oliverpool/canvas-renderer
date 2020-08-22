@@ -230,8 +230,6 @@ func (pdf PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix
 func (pdf PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 	// canvas.RenderTextAsPath(pdf, text, m)
 
-	pdf.transformBegin(m)
-
 	text.WalkSpans(func(y, dx float64, span canvas.TextSpan) {
 		pdf.setTextColor(span.Face.Color)
 
@@ -280,13 +278,14 @@ func (pdf PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 			pdf.SetTextRenderingMode(0)
 		}
 
-		pdf.SetXY(dx, pdf.height-y)
+		pdf.transformBegin(m.Translate(dx, y))
+		pdf.SetXY(0, pdf.height)
 		for _, w := range span.Words() {
 			width := pdf.GetStringWidth(w)
 			pdf.CellFormat(width+span.WordSpacing, 0, w, "", 0, "A", false, 0, "")
 		}
+		pdf.TransformEnd()
 	})
-	pdf.TransformEnd()
 
 	text.RenderDecoration(pdf, m)
 }
@@ -297,9 +296,9 @@ func adjustMatrix(m canvas.Matrix) canvas.Matrix {
 
 func (pdf PDF) transformBegin(m canvas.Matrix) PDF {
 	pdf.TransformBegin()
-	m = adjustMatrix(m)
+	am := adjustMatrix(m)
 	pdf.Transform(gofpdf.TransformMatrix{
-		m[0][0], m[1][0], m[0][1], m[1][1], m[0][2], m[1][2],
+		am[0][0], am[1][0], am[0][1], am[1][1], am[0][2], am[1][2],
 	})
 	return pdf
 }
